@@ -18,7 +18,7 @@ In increasing order of complexity:
 - Encrypt the full exchange (request and response) using a preshared, symmetric key
 - Exchange a shared key for symmetric encryption, using asymmetric primitives
 
-Following is a *one-sided* (both sides need the others' public key, to derive the shared key!) example of performing X25519-based, asymmetric key-exchange and then using PBKDF2 (with HMAC) key derivation to generate a base64 shared key for use with the Fernet symmetric algorithm.
+Following is an example of performing X25519-based, asymmetric key-exchange and then using PBKDF2 (with HMAC) key derivation to generate a base64 shared key for use with the Fernet symmetric algorithm.
 
 Key Exchange:
 https://cryptography.io/en/latest/hazmat/primitives/asymmetric/x25519.html#exchange-algorithm
@@ -29,25 +29,40 @@ https://cryptography.io/en/latest/hazmat/primitives/key-derivation-functions.htm
 ```python
 from os import urandom
 import base64
-from cryptography.hazmat.primitives import hashes
-from cryptography.hazmat.primitives.asymmetric.x25519 import X25519PrivateKey
+from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.hazmat.primitives.asymmetric.x25519 import X25519PrivateKey,X25519PublicKey
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 
-# Generate a private key for use in the exchange.
-private_key = X25519PrivateKey.generate()
+# Peers generate their respective private keys
+private_key_peer1 = X25519PrivateKey.generate()
+private_key_peer2 = X25519PrivateKey.generate()
 
-# In a real handshake the peer_public_key will be received from the
-# other party. For this example we'll generate another private key and
-# get a public key from that. Note that in a DH handshake both peers
-# must agree on a common set of parameters.
-peer_public_key = X25519PrivateKey.generate().public_key()
+# Each peer encodes their public key in a format that's easily exchanged (raw bytes, in this case)
+public_key_peer1 = private_key_peer1.public_key().public_bytes(encoding = serialization.Encoding.Raw, format = serialization.PublicFormat.Raw)
+public_key_peer2 = private_key_peer2.public_key().public_bytes(encoding = serialization.Encoding.Raw, format = serialization.PublicFormat.Raw)
 
-shared_key = private_key.exchange(peer_public_key)
+# For the purpose of key derivation, a shared salt is required
+# The salt is not inherently sensitive, and can be transmitted alongside the public key
+salt = urandom(16)
 
-# Perform key derivation, to produce a derived, shared key usable
-# with another algorithm (in this case, Fernet).
-kdf = PBKDF2HMAC(algorithm=hashes.SHA256(),length=32,salt=urandom(16),iterations=100000,)
-derived_shared_key = base64.urlsafe_b64encode(kdf.derive(shared_key))
+# Somehow, the peers exchange their private keys, and establish a salt, such that each peer now has:
+#   - Their respective private key
+#   - The other peer's public key
+#   - The salt
+
+# The peers now independently calculate the shared X25519 key
+shared_key_peer1 = private_key_peer1.exchange(X25519PublicKey.from_public_bytes(public_key_peer2))
+shared_key_peer2 = private_key_peer2.exchange(X25519PublicKey.from_public_bytes(public_key_peer1))
+
+# Finally, using their shared keys and salt, they perform key derivation.
+# This produces a derived, shared key usable with another algorithm (in this case, Fernet).
+# NOTE: The parameters of the key derivation function MUST be known to both peers. These parameters may be exchanged/agreed.
+kdf_peer1 = PBKDF2HMAC(algorithm=hashes.SHA256(), length=32, salt=salt, iterations=100000, )
+kdf_peer2 = PBKDF2HMAC(algorithm=hashes.SHA256(), length=32, salt=salt, iterations=100000, )
+derived_shared_key_peer1 = base64.urlsafe_b64encode(kdf_peer1.derive(shared_key_peer1))
+derived_shared_key_peer2 = base64.urlsafe_b64encode(kdf_peer2.derive(shared_key_peer2))
+
+# The resulting keys (from the above KDF) are of an appropriate length and encoding for direct use with Fernet ('cryptography.fernet' library).
 ```
 
 Much more involved things you could implement:

@@ -1,6 +1,12 @@
 #!/usr/bin/env python3
 
 import socket
+from cryptography.fernet import Fernet
+shared_key = b'5GH5XrQMLnAf5g6SU01pY9fgXYRt02Yi6e7C4Hoprj8='
+cipher_suite = Fernet(shared_key)
+# cipher_text = cipher_suite.encrypt(b"A really secret message. Not for prying eyes.")
+# plain_text = cipher_suite.decrypt(cipher_text)
+
 
 HOST = '127.0.0.1'
 PORT = 65432
@@ -77,11 +83,12 @@ with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
                 # If this is a "GET" request, get the resource and return the result
                 if requestType == b'GET':
                     resource = getResource(requestData) # (hint hint, great spot for encryption)
+                    encrypted_resource = cipher_suite.encrypt(resource)
 
                     # Construct response as 'OK:/requested/resource:ContentOfRequestedResource'
-                    response = b'OK' + b':' + requestData + b':' + resource
+                    response = b'OK' + b':' + requestData + b':' + encrypted_resource
 
-                    print('\tSENT\t' + repr(response))
+                    print('\tSENT\t' + repr(encrypted_resource))
 
                     # NB: We don't explicitly encode('utf8') here, because we're already using byte strings
                     connection.sendall(response)

@@ -15,6 +15,7 @@ with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
     s.sendall(request)
     data = s.recv(1024)
 
+encrypted_payload = data.split(b':')[2]
 print('Sent', repr(request))
 print('Received', repr(data))
-# print('Received decrypted', cipher_suite.decrypt(data))
+print('Received decrypted', cipher_suite.decrypt(encrypted_payload))

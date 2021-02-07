@@ -3,6 +3,8 @@ import base64
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric.x25519 import X25519PrivateKey,X25519PublicKey
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
+# NOTE: PBKDF2HMAC backend is optional on newer cryptography library versions (e.g., 3.3.1), but
+# required on older versions (e.g., 2.8).
 from cryptography.hazmat.backends import default_backend
 
 # Peers generate their respective private keys

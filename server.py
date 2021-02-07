@@ -73,25 +73,30 @@ with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
                     print('Disconnected from ', address)
                     break # Break out of recv() loop, and return to accept() loop
 
-                print('\tGOT\t' + repr(data))
+                print('\tGOT\t\t' + repr(data))
+
+                decrypted_data = cipher_suite.decrypt(data)
+
+                print('\tGOT decrypted\t' + repr(decrypted_data))
 
 
                 # Pass the raw request through a parser (hint hint, great spot for decryption)
-                (requestType, requestData) = parseRequest(data)
+                (requestType, requestData) = parseRequest(decrypted_data)
 
 
                 # If this is a "GET" request, get the resource and return the result
                 if requestType == b'GET':
                     resource = getResource(requestData) # (hint hint, great spot for encryption)
-                    encrypted_resource = cipher_suite.encrypt(resource)
 
                     # Construct response as 'OK:/requested/resource:ContentOfRequestedResource'
-                    response = b'OK' + b':' + requestData + b':' + encrypted_resource
+                    response = b'OK' + b':' + requestData + b':' + resource
+                    encrypted_response = cipher_suite.encrypt(response)
 
-                    print('\tSENT\t' + repr(encrypted_resource))
+                    print('\tSENT \t\t' + repr(response))
+                    print('\tSENT encrypted\t' + repr(encrypted_response))
 
                     # NB: We don't explicitly encode('utf8') here, because we're already using byte strings
-                    connection.sendall(response)
+                    connection.sendall(encrypted_response)
 
 
                 # If we couldn't interpret this as a GET request, return an ERROR

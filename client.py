@@ -12,10 +12,12 @@ PORT = 65432
 with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
     s.connect((HOST, PORT))
     request = b'GET:/some/secret/resource'
-    s.sendall(request)
+    encrypted_request = cipher_suite.encrypt(request)
+    s.sendall(encrypted_request)
     data = s.recv(1024)
 
-encrypted_payload = data.split(b':')[2]
 print('Sent', repr(request))
+print('Sent encrypted', repr(encrypted_request))
+
 print('Received', repr(data))
-print('Received decrypted', cipher_suite.decrypt(encrypted_payload))
+print('Received decrypted', cipher_suite.decrypt(data))
